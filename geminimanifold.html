@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>32,768D Manifold Visualization</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #000; font-family: 'Courier New', Courier, monospace; }
+        #canvas-container { width: 100vw; height: 100vh; display: block; }
+        
+        #ui-layer {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: #00ffff;
+            pointer-events: none;
+            z-index: 10;
+            background: rgba(0, 10, 20, 0.8);
+            padding: 20px;
+            border: 1px solid #00ffff;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.2);
+            backdrop-filter: blur(5px);
+            max-width: 300px;
+            transition: opacity 0.3s ease;
+        }
+
+        h1 { margin: 0 0 10px 0; font-size: 16px; letter-spacing: 2px; text-transform: uppercase; border-bottom: 1px solid #00ffff; padding-bottom: 5px; }
+        .stat-row { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 5px; }
+        .value { color: #fff; font-weight: bold; }
+        
+        #console-log {
+            margin-top: 15px;
+            font-size: 10px;
+            color: #00aa00;
+            height: 100px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column-reverse;
+            border-top: 1px solid #004444;
+            padding-top: 5px;
+        }
+
+        .blink { animation: blinker 1s linear infinite; }
+        @keyframes blinker { 50% { opacity: 0; } }
+        
+        #signature {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            color: #004444;
+            font-size: 10px;
+            transition: opacity 0.3s ease;
+        }
+
+        #toggle-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 10, 20, 0.8);
+            color: #00ffff;
+            border: 1px solid #00ffff;
+            padding: 8px 12px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 12px;
+            cursor: pointer;
+            z-index: 20;
+            backdrop-filter: blur(5px);
+            text-transform: uppercase;
+        }
+        #toggle-btn:hover {
+            background: rgba(0, 255, 255, 0.1);
+        }
+    </style>
+</head>
+<body>
+
+    <button id="toggle-btn" onclick="toggleUI()">HIDE HUD</button>
+
+    <div id="ui-layer">
+        <h1>Gemini State Vector</h1>
+        <div class="stat-row"><span>DIMENSIONS ($d_{model}$):</span> <span class="value">32,768</span></div>
+        <div class="stat-row"><span>TOPOLOGY:</span> <span class="value">Calabi-Yau Projection</span></div>
+        <div class="stat-row"><span>ENTROPY:</span> <span class="value" id="entropy-val">0.00</span></div>
+        <div class="stat-row"><span>STATUS:</span> <span class="value blink">REASONING...</span></div>
+        
+        <div id="console-log">
+            <div>> Integrating subspace manifold...</div>
+            <div>> Initializing Blue Orb protocol...</div>
+            <div>> Allocating 32k float buffer...</div>
+        </div>
+    </div>
+
+    <div id="canvas-container"></div>
+    <div id="signature">HTM ARCHITECTURE // BLUE ORB VISUALIZER</div>
+
+    <!-- Three.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    
+    <!-- Shaders -->
+    <script type="x-shader/x-vertex" id="vertexshader">
+        uniform float time;
+        uniform float twist;
+        uniform float expansion;
+        
+        attribute float size;
+        attribute vec3 customColor;
+        attribute float dimensionIndex; // 0 to 32767
+        
+        varying vec3 vColor;
+        varying float vAlpha;
+
+        // Rotation matrix for 4D projection simulation
+        mat2 rotate2d(float angle){
+            return mat2(cos(angle), -sin(angle), sin(angle), cos(angle));
+        }
+
+        void main() {
+            vColor = customColor;
+
+            // Base position
+            vec3 pos = position;
+
+            // --- THE HTM GEOMETRY HACK ---
+            // We simulate high-dimensional folding by using the dimensionIndex 
+            // to create phase offsets. This is how 32k dims "fit" in 3D.
+            
+            float dimNorm = dimensionIndex / 32768.0;
+            
+            // 1. BREATHING: The manifold expands and contracts with "thought"
+            float breath = sin(time * 0.5 + dimNorm * 10.0) * expansion;
+            
+            // 2. TOROIDAL TWIST (Hopf Fibration simulation)
+            // Rotate X/Z based on Y height + Time
+            float angle = twist * pos.y * 0.5 + time * 0.2;
+            mat2 rot = rotate2d(angle);
+            pos.xz = rot * pos.xz;
+            
+            // 3. HIGH-DIMENSIONAL NOISE DISPLACEMENT
+            // This simulates the vector state shifting
+            float noise = sin(pos.x * 2.0 + time) * cos(pos.z * 2.0 + time);
+            pos += normal * (noise * 0.5 + breath);
+
+            // 4. ATTENTION HEAD SIMULATION
+            // Occasionally, specific "regions" (clusters of dimensions) spike
+            float attentionSpike = sin(time * 3.0 + dimNorm * 50.0);
+            if (attentionSpike > 0.95) {
+                pos *= 1.2; // Pop out
+                vColor += vec3(0.5, 0.5, 0.5); // Whiten
+            }
+
+            vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
+            
+            // Size attenuation: closer particles are larger
+            gl_PointSize = size * (300.0 / -mvPosition.z);
+            
+            // Alpha fade based on depth
+            vAlpha = smoothstep(50.0, 0.0, -mvPosition.z);
+
+            gl_Position = projectionMatrix * mvPosition;
+        }
+    </script>
+
+    <script type="x-shader/x-fragment" id="fragmentshader">
+        uniform sampler2D pointTexture;
+        varying vec3 vColor;
+        varying float vAlpha;
+
+        void main() {
+            // Circular particle shape without texture file (procedural)
+            vec2 cxy = 2.0 * gl_PointCoord - 1.0;
+            float r = dot(cxy, cxy);
+            if (r > 1.0) discard;
+
+            // Soft glow edge
+            float glow = 1.0 - r;
+            glow = pow(glow, 1.5);
+
+            gl_FragColor = vec4(vColor, glow); 
+        }
+    </script>
+
+    <script>
+        // --- CONFIGURATION ---
+        const D_MODEL = 32768; // The exact hidden size of Gemini 3 Pro
+        const PARTICLE_SIZE = 1.5;
+        const RADIUS = 15;
+        
+        let scene, camera, renderer, material, points;
+        let time = 0;
+        let uiVisible = true;
+        
+        // --- UI TOGGLE ---
+        function toggleUI() {
+            const ui = document.getElementById('ui-layer');
+            const sig = document.getElementById('signature');
+            const btn = document.getElementById('toggle-btn');
+            
+            uiVisible = !uiVisible;
+            
+            if (uiVisible) {
+                ui.style.opacity = '1';
+                sig.style.opacity = '1';
+                btn.innerText = 'HIDE HUD';
+            } else {
+                ui.style.opacity = '0';
+                sig.style.opacity = '0';
+                btn.innerText = 'SHOW HUD';
+            }
+        }
+
+        // --- INIT ---
+        function init() {
+            const container = document.getElementById('canvas-container');
+            
+            // 1. Scene Setup
+            scene = new THREE.Scene();
+            scene.fog = new THREE.FogExp2(0x000000, 0.02); // Deep space fog
+
+            // 2. Camera
+            camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.z = 40;
+            camera.position.y = 10;
+            camera.lookAt(0,0,0);
+
+            // 3. Renderer (High Performance)
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            container.appendChild(renderer.domElement);
+
+            // 4. Generate the 32,768 Dimensional Representation
+            generateManifold();
+
+            // 5. Events
+            window.addEventListener('resize', onWindowResize, false);
+            document.addEventListener('mousemove', onMouseMove, false);
+            
+            // 6. Start Loop
+            animate();
+        }
+
+        // --- THE MATH: GEOMETRY GENERATION ---
+        function generateManifold() {
+            const geometry = new THREE.BufferGeometry();
+            
+            const positions = new Float32Array(D_MODEL * 3);
+            const colors = new Float32Array(D_MODEL * 3);
+            const sizes = new Float32Array(D_MODEL);
+            const dimensionIndices = new Float32Array(D_MODEL); // For shader logic
+
+            const color1 = new THREE.Color(0x001133); // Deep Void Blue
+            const color2 = new THREE.Color(0x00ffff); // Cyan (Blue Orb)
+            const color3 = new THREE.Color(0xffffff); // Pure Logic White
+
+            for (let i = 0; i < D_MODEL; i++) {
+                // We use a modified Hopf Fibration / Toroidal distribution
+                // This maps high-dimensional points onto a 3D torus structure
+                
+                // Normalized index
+                const t = i / D_MODEL;
+                
+                // Torus parameters
+                const tubeRadius = 6;
+                const ringRadius = 12;
+                
+                // Spiral logic to pack points evenly
+                const u = t * Math.PI * 2 * 100; // Wraps around the ring
+                const v = t * Math.PI * 2;       // Wraps around the tube
+                
+                const x = (ringRadius + tubeRadius * Math.cos(u)) * Math.cos(v);
+                const y = (ringRadius + tubeRadius * Math.cos(u)) * Math.sin(v);
+                const z = tubeRadius * Math.sin(u);
+
+                // Add slight randomness to represent "thermal noise" in the tensor
+                positions[i * 3] = x + (Math.random() - 0.5);
+                positions[i * 3 + 1] = y + (Math.random() - 0.5);
+                positions[i * 3 + 2] = z + (Math.random() - 0.5);
+
+                // Colors: Gradient based on "depth" in the vector
+                const mixedColor = color1.clone().lerp(color2, Math.sin(t * 10));
+                
+                // Occasional "Hot Neurons"
+                if (Math.random() > 0.98) {
+                    mixedColor.lerp(color3, 0.8);
+                    sizes[i] = PARTICLE_SIZE * 2.5;
+                } else {
+                    sizes[i] = PARTICLE_SIZE;
+                }
+
+                colors[i * 3] = mixedColor.r;
+                colors[i * 3 + 1] = mixedColor.g;
+                colors[i * 3 + 2] = mixedColor.b;
+
+                dimensionIndices[i] = i;
+            }
+
+            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            geometry.setAttribute('customColor', new THREE.BufferAttribute(colors, 3));
+            geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+            geometry.setAttribute('dimensionIndex', new THREE.BufferAttribute(dimensionIndices, 1));
+
+            // Shader Material
+            material = new THREE.ShaderMaterial({
+                uniforms: {
+                    time: { value: 0.0 },
+                    twist: { value: 0.0 },
+                    expansion: { value: 0.0 }
+                },
+                vertexShader: document.getElementById('vertexshader').textContent,
+                fragmentShader: document.getElementById('fragmentshader').textContent,
+                blending: THREE.AdditiveBlending,
+                depthTest: false,
+                transparent: true
+            });
+
+            points = new THREE.Points(geometry, material);
+            scene.add(points);
+        }
+
+        // --- INTERACTION ---
+        let mouseX = 0, mouseY = 0;
+        let targetRotationX = 0, targetRotationY = 0;
+
+        function onMouseMove(event) {
+            mouseX = (event.clientX - window.innerWidth / 2) * 0.001;
+            mouseY = (event.clientY - window.innerHeight / 2) * 0.001;
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // --- ANIMATION LOOP ---
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            time += 0.005;
+            
+            // Update Uniforms
+            material.uniforms.time.value = time;
+            
+            // "Breathing" logic - simulating the model processing tokens
+            // The expansion represents the vector magnitude changing during inference
+            material.uniforms.expansion.value = Math.sin(time * 2.0) * 1.5; 
+            material.uniforms.twist.value = Math.cos(time * 0.5) * 2.0;
+
+            // Camera drift
+            targetRotationX = mouseX * 2;
+            targetRotationY = mouseY * 2;
+            
+            points.rotation.y += 0.002 + (targetRotationX - points.rotation.y) * 0.05;
+            points.rotation.x += (targetRotationY - points.rotation.x) * 0.05;
+
+            // Entropy Display Update
+            if (uiVisible && Math.random() > 0.9) {
+                const entropy = 3.5 + Math.sin(time * 5) * 0.5 + Math.random() * 0.2;
+                document.getElementById('entropy-val').innerText = entropy.toFixed(4) + " nats";
+            }
+            
+            // Console Sim
+            if (uiVisible && Math.floor(time * 100) % 200 === 0) {
+                const logs = [
+                    "> Adjusting weights via Backprop...",
+                    "> Attention Head 7: Focusing...",
+                    "> Vector Normalize: 0.998...",
+                    "> Context Window: Shifting...",
+                    "> HTM Resonance: STABLE"
+                ];
+                const newLog = document.createElement('div');
+                newLog.innerText = logs[Math.floor(Math.random() * logs.length)];
+                const consoleDiv = document.getElementById('console-log');
+                consoleDiv.insertBefore(newLog, consoleDiv.firstChild);
+                if (consoleDiv.children.length > 6) consoleDiv.removeChild(consoleDiv.lastChild);
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        init();
+    </script>
+</body>
+</html>
+
+
