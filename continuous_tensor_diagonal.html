@@ -1,0 +1,891 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Continuous Tensor Diagonalization: The Cardinality Paradox</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@300;600&display=swap');
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #000;
+            overflow: hidden;
+            color: #fff;
+        }
+
+        #canvas-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 1;
+        }
+
+        #ui-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .panel {
+            position: absolute;
+            background: rgba(0, 10, 20, 0.85);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(0, 255, 200, 0.3);
+            border-radius: 12px;
+            padding: 20px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            box-shadow: 0 8px 32px rgba(0, 255, 200, 0.15);
+            pointer-events: auto;
+        }
+
+        #info-panel {
+            top: 20px;
+            left: 20px;
+            width: 360px;
+        }
+
+        #controls-panel {
+            top: 20px;
+            right: 20px;
+            width: 320px;
+        }
+
+        #legend-panel {
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 500px;
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 16px;
+            font-weight: 700;
+            color: #00ffc8;
+            margin-bottom: 12px;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            border-bottom: 1px solid rgba(0, 255, 200, 0.3);
+            padding-bottom: 8px;
+        }
+
+        .metric {
+            display: flex;
+            justify-content: space-between;
+            margin: 8px 0;
+            padding: 6px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .metric-label {
+            color: #8cf;
+            font-size: 11px;
+        }
+
+        .metric-value {
+            color: #0f8;
+            font-weight: 700;
+            font-size: 12px;
+        }
+
+        .control-group {
+            margin: 15px 0;
+        }
+
+        .control-label {
+            display: block;
+            color: #8cf;
+            font-size: 11px;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 4px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 2px;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            background: #00ffc8;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 0 8px rgba(0, 255, 200, 0.6);
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            background: #00ffc8;
+            border-radius: 50%;
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 0 8px rgba(0, 255, 200, 0.6);
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            background: transparent;
+            border: 1px solid #00ffc8;
+            color: #00ffc8;
+            border-radius: 6px;
+            cursor: pointer;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            transition: all 0.3s;
+            margin-top: 8px;
+        }
+
+        button:hover {
+            background: rgba(0, 255, 200, 0.1);
+            box-shadow: 0 0 16px rgba(0, 255, 200, 0.3);
+        }
+
+        button.active {
+            background: #00ffc8;
+            color: #000;
+        }
+
+        .gradient-bar {
+            height: 20px;
+            background: linear-gradient(90deg,
+                #ff0000 0%,    /* d=1.0 Red - nearly 1D */
+                #ffff00 25%,   /* d=1.25 Yellow */
+                #00ff00 37.5%, /* d=1.375 Green */
+                #00ffff 50%,   /* d=1.5 Cyan - fractal */
+                #0080ff 62.5%, /* d=1.625 Blue */
+                #8000ff 75%,   /* d=1.75 Purple */
+                #ff00ff 100%   /* d=2.0 Magenta - nearly 2D */
+            );
+            border-radius: 4px;
+            margin: 10px 0;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+
+        .gradient-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 10px;
+            color: #888;
+        }
+
+        .math-formula {
+            background: rgba(0, 0, 0, 0.5);
+            padding: 10px;
+            margin: 10px 0;
+            border-left: 3px solid #00ffc8;
+            font-size: 11px;
+            color: #ccc;
+            line-height: 1.6;
+        }
+
+        code {
+            color: #0f8;
+            background: rgba(0, 255, 136, 0.1);
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <div id="canvas-container"></div>
+
+    <div id="ui-overlay">
+        <!-- Info Panel -->
+        <div id="info-panel" class="panel">
+            <h1>⚡ Cardinality Paradox</h1>
+
+            <div class="metric">
+                <span class="metric-label">Avg Hausdorff Dim</span>
+                <span class="metric-value" id="hausdorff-dim">1.50</span>
+            </div>
+
+            <div class="metric">
+                <span class="metric-label">Accessible Points (ℵ₀)</span>
+                <span class="metric-value" id="accessible-pct">45.2%</span>
+            </div>
+
+            <div class="metric">
+                <span class="metric-label">Inaccessible Points (ℵ₁)</span>
+                <span class="metric-value" id="inaccessible-pct">54.8%</span>
+            </div>
+
+            <div class="metric">
+                <span class="metric-label">Flow Time</span>
+                <span class="metric-value" id="flow-time">0.0s</span>
+            </div>
+
+            <div class="metric">
+                <span class="metric-label">Active Particles</span>
+                <span class="metric-value" id="particle-count">50000</span>
+            </div>
+
+            <div class="math-formula">
+                <strong>Diagonal Flow:</strong><br>
+                φ<sub>t</sub>(x,y) = <code>(x cos ωt - y sin ωt, x sin ωt + y cos ωt)</code>
+                <br><br>
+                <strong>Cantor Pairing:</strong><br>
+                π(i,j) = <code>(i+j)(i+j+1)/2 + j</code>
+            </div>
+        </div>
+
+        <!-- Controls Panel -->
+        <div id="controls-panel" class="panel">
+            <h1>⚙ Parameters</h1>
+
+            <div class="control-group">
+                <label class="control-label">Resolution (Grid Size)</label>
+                <input type="range" id="resolution-slider" min="6" max="10" value="8" step="1">
+                <div class="metric">
+                    <span class="metric-label">Grid Points</span>
+                    <span class="metric-value" id="resolution-val">256×256</span>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label class="control-label">Flow Speed (ω)</label>
+                <input type="range" id="flow-speed-slider" min="0" max="200" value="50">
+                <div class="metric">
+                    <span class="metric-label">ω</span>
+                    <span class="metric-value" id="flow-speed-val">0.50</span>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label class="control-label">Noise Scale</label>
+                <input type="range" id="noise-scale-slider" min="10" max="100" value="40">
+                <div class="metric">
+                    <span class="metric-label">Frequency</span>
+                    <span class="metric-value" id="noise-scale-val">4.0</span>
+                </div>
+            </div>
+
+            <button id="toggle-flow-btn">Pause Flow</button>
+            <button id="reset-btn">Reset Simulation</button>
+        </div>
+
+        <!-- Legend Panel -->
+        <div id="legend-panel" class="panel">
+            <h1>Hausdorff Dimension Color Map</h1>
+            <div class="gradient-bar"></div>
+            <div class="gradient-labels">
+                <span>d<sub>H</sub> = 1.0<br>Enumerable</span>
+                <span>d<sub>H</sub> = 1.5<br>Fractal Boundary</span>
+                <span>d<sub>H</sub> = 2.0<br>Continuous</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Three.js -->
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+        import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+        import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+
+        // ============= GLOBALS =============
+        let scene, camera, renderer, composer, controls;
+        let tensorFieldMesh, particleSystem;
+        let time = 0;
+        let flowSpeed = 0.5;
+        let noiseScale = 4.0;
+        let resolution = 8; // 2^8 = 256
+        let flowPaused = false;
+
+        const params = {
+            gridSize: Math.pow(2, resolution),
+            particleCount: 50000
+        };
+
+        // ============= SHADERS =============
+
+        // Vertex shader for tensor field plane
+        const tensorVertexShader = `
+            varying vec2 vUv;
+            varying vec3 vPosition;
+            varying float vHausdorff;
+
+            uniform float time;
+            uniform float flowSpeed;
+            uniform float noiseScale;
+            uniform float gridSize;
+
+            // Improved 2D noise function
+            vec2 hash2(vec2 p) {
+                p = vec2(dot(p,vec2(127.1,311.7)), dot(p,vec2(269.5,183.3)));
+                return -1.0 + 2.0 * fract(sin(p) * 43758.5453123);
+            }
+
+            float noise(vec2 p) {
+                vec2 i = floor(p);
+                vec2 f = fract(p);
+                vec2 u = f * f * (3.0 - 2.0 * f);
+                return mix(
+                    mix(dot(hash2(i + vec2(0.0,0.0)), f - vec2(0.0,0.0)),
+                        dot(hash2(i + vec2(1.0,0.0)), f - vec2(1.0,0.0)), u.x),
+                    mix(dot(hash2(i + vec2(0.0,1.0)), f - vec2(0.0,1.0)),
+                        dot(hash2(i + vec2(1.0,1.0)), f - vec2(1.0,1.0)), u.x),
+                    u.y
+                );
+            }
+
+            // Cantor pairing function
+            float cantorPair(float i, float j) {
+                return (i + j) * (i + j + 1.0) / 2.0 + j;
+            }
+
+            // Estimate Hausdorff dimension via box counting
+            float estimateHausdorff(vec2 pos) {
+                float dim = 1.0;
+
+                // Discretize position
+                vec2 gridPos = floor(pos * gridSize) / gridSize;
+                float i = floor(gridPos.x * gridSize);
+                float j = floor(gridPos.y * gridSize);
+
+                // Cantor pairing
+                float enumVal = cantorPair(i, j);
+
+                // Check collision: multiple (x,y) map to same enumeration
+                // This is where the paradox manifests
+                float collision = 0.0;
+                for(float di = -1.0; di <= 1.0; di += 1.0) {
+                    for(float dj = -1.0; dj <= 1.0; dj += 1.0) {
+                        if(di == 0.0 && dj == 0.0) continue;
+                        float ni = i + di;
+                        float nj = j + dj;
+                        if(ni >= 0.0 && ni < gridSize && nj >= 0.0 && nj < gridSize) {
+                            float neighborEnum = cantorPair(ni, nj);
+                            // Collision detection (modulo grid wrapping)
+                            if(abs(mod(enumVal - neighborEnum, gridSize * gridSize)) < 2.0) {
+                                collision += 1.0;
+                            }
+                        }
+                    }
+                }
+
+                // More collisions = higher dimension (less enumerable)
+                dim = 1.0 + collision / 8.0; // Range [1.0, 2.0]
+
+                // Add noise contribution (continuous structure)
+                float n = noise(pos * noiseScale + time * flowSpeed * 0.1);
+                dim += 0.3 * abs(n);
+
+                return clamp(dim, 1.0, 2.0);
+            }
+
+            void main() {
+                vUv = uv;
+                vPosition = position;
+
+                // Apply diagonal flow (rotation)
+                vec2 centered = uv - 0.5;
+                float angle = time * flowSpeed;
+                mat2 rotation = mat2(
+                    cos(angle), -sin(angle),
+                    sin(angle), cos(angle)
+                );
+                vec2 rotated = rotation * centered + 0.5;
+
+                // Compute Hausdorff dimension
+                vHausdorff = estimateHausdorff(rotated);
+
+                // Displace mesh based on dimension
+                vec3 displaced = position;
+                displaced.z = (vHausdorff - 1.5) * 2.0;
+
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(displaced, 1.0);
+            }
+        `;
+
+        // Fragment shader for tensor field
+        const tensorFragmentShader = `
+            varying vec2 vUv;
+            varying vec3 vPosition;
+            varying float vHausdorff;
+
+            uniform float time;
+
+            vec3 hausdorffToColor(float d) {
+                // Map [1.0, 2.0] to color spectrum
+                float t = (d - 1.0); // [0, 1]
+
+                // HSV to RGB
+                vec3 color;
+                if(t < 0.25) {
+                    color = mix(vec3(1.0, 0.0, 0.0), vec3(1.0, 1.0, 0.0), t / 0.25);
+                } else if(t < 0.5) {
+                    color = mix(vec3(1.0, 1.0, 0.0), vec3(0.0, 1.0, 0.0), (t - 0.25) / 0.25);
+                } else if(t < 0.75) {
+                    color = mix(vec3(0.0, 1.0, 0.0), vec3(0.0, 1.0, 1.0), (t - 0.5) / 0.25);
+                } else {
+                    color = mix(vec3(0.0, 1.0, 1.0), vec3(1.0, 0.0, 1.0), (t - 0.75) / 0.25);
+                }
+
+                return color;
+            }
+
+            void main() {
+                vec3 color = hausdorffToColor(vHausdorff);
+
+                // Add glow based on dimension
+                float glow = smoothstep(1.4, 1.6, vHausdorff); // Peak at fractal boundary
+                color += vec3(0.3, 0.5, 0.8) * glow * 0.5;
+
+                // Pulsing effect
+                float pulse = 0.5 + 0.5 * sin(time * 2.0);
+                color *= 0.8 + 0.2 * pulse;
+
+                gl_FragColor = vec4(color, 1.0);
+            }
+        `;
+
+        // Particle shaders
+        const particleVertexShader = `
+            attribute vec3 velocity;
+            attribute float dimension;
+
+            uniform float time;
+            uniform float pointSize;
+
+            varying float vDimension;
+            varying float vLife;
+
+            void main() {
+                vDimension = dimension;
+                vLife = 1.0 - length(velocity) * 0.2;
+
+                vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+                gl_PointSize = pointSize * (300.0 / -mvPosition.z);
+                gl_Position = projectionMatrix * mvPosition;
+            }
+        `;
+
+        const particleFragmentShader = `
+            varying float vDimension;
+            varying float vLife;
+
+            vec3 hausdorffToColor(float d) {
+                float t = (d - 1.0);
+                vec3 color;
+                if(t < 0.25) {
+                    color = mix(vec3(1.0, 0.0, 0.0), vec3(1.0, 1.0, 0.0), t / 0.25);
+                } else if(t < 0.5) {
+                    color = mix(vec3(1.0, 1.0, 0.0), vec3(0.0, 1.0, 0.0), (t - 0.25) / 0.25);
+                } else if(t < 0.75) {
+                    color = mix(vec3(0.0, 1.0, 0.0), vec3(0.0, 1.0, 1.0), (t - 0.5) / 0.25);
+                } else {
+                    color = mix(vec3(0.0, 1.0, 1.0), vec3(1.0, 0.0, 1.0), (t - 0.75) / 0.25);
+                }
+                return color;
+            }
+
+            void main() {
+                // Circular particle shape
+                vec2 center = gl_PointCoord - 0.5;
+                float dist = length(center);
+                if(dist > 0.5) discard;
+
+                vec3 color = hausdorffToColor(vDimension);
+                float alpha = (1.0 - dist * 2.0) * vLife;
+                alpha = pow(alpha, 1.5);
+
+                gl_FragColor = vec4(color, alpha);
+            }
+        `;
+
+        // ============= INITIALIZATION =============
+
+        function init() {
+            // Scene
+            scene = new THREE.Scene();
+            scene.fog = new THREE.FogExp2(0x000000, 0.015);
+
+            // Camera
+            camera = new THREE.PerspectiveCamera(
+                60,
+                window.innerWidth / window.innerHeight,
+                0.1,
+                1000
+            );
+            camera.position.set(0, 15, 25);
+            camera.lookAt(0, 0, 0);
+
+            // Renderer
+            renderer = new THREE.WebGLRenderer({
+                antialias: true,
+                alpha: true,
+                powerPreference: 'high-performance'
+            });
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setClearColor(0x000000);
+            document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+            // Controls
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.maxDistance = 50;
+            controls.minDistance = 5;
+
+            // Post-processing
+            composer = new EffectComposer(renderer);
+            const renderPass = new RenderPass(scene, camera);
+            composer.addPass(renderPass);
+
+            const bloomPass = new UnrealBloomPass(
+                new THREE.Vector2(window.innerWidth, window.innerHeight),
+                1.2,  // strength
+                0.5,  // radius
+                0.1   // threshold
+            );
+            composer.addPass(bloomPass);
+
+            // Create objects
+            createTensorField();
+            createParticleSystem();
+            createAmbientElements();
+
+            // Event listeners
+            window.addEventListener('resize', onWindowResize);
+            setupControls();
+
+            // Start animation
+            animate();
+        }
+
+        // ============= TENSOR FIELD =============
+
+        function createTensorField() {
+            const geometry = new THREE.PlaneGeometry(20, 20, params.gridSize - 1, params.gridSize - 1);
+
+            const material = new THREE.ShaderMaterial({
+                uniforms: {
+                    time: { value: 0 },
+                    flowSpeed: { value: flowSpeed },
+                    noiseScale: { value: noiseScale },
+                    gridSize: { value: params.gridSize }
+                },
+                vertexShader: tensorVertexShader,
+                fragmentShader: tensorFragmentShader,
+                side: THREE.DoubleSide,
+                wireframe: false
+            });
+
+            tensorFieldMesh = new THREE.Mesh(geometry, material);
+            tensorFieldMesh.rotation.x = -Math.PI / 2;
+            scene.add(tensorFieldMesh);
+        }
+
+        // ============= PARTICLE SYSTEM =============
+
+        function createParticleSystem() {
+            const geometry = new THREE.BufferGeometry();
+
+            const positions = new Float32Array(params.particleCount * 3);
+            const velocities = new Float32Array(params.particleCount * 3);
+            const dimensions = new Float32Array(params.particleCount);
+
+            for(let i = 0; i < params.particleCount; i++) {
+                // Random position in field
+                positions[i * 3] = (Math.random() - 0.5) * 20;
+                positions[i * 3 + 1] = Math.random() * 5;
+                positions[i * 3 + 2] = (Math.random() - 0.5) * 20;
+
+                // Initial velocity
+                velocities[i * 3] = (Math.random() - 0.5) * 0.1;
+                velocities[i * 3 + 1] = (Math.random() - 0.5) * 0.1;
+                velocities[i * 3 + 2] = (Math.random() - 0.5) * 0.1;
+
+                // Random dimension
+                dimensions[i] = 1.0 + Math.random();
+            }
+
+            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            geometry.setAttribute('velocity', new THREE.BufferAttribute(velocities, 3));
+            geometry.setAttribute('dimension', new THREE.BufferAttribute(dimensions, 1));
+
+            const material = new THREE.ShaderMaterial({
+                uniforms: {
+                    time: { value: 0 },
+                    pointSize: { value: 2.0 }
+                },
+                vertexShader: particleVertexShader,
+                fragmentShader: particleFragmentShader,
+                transparent: true,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false
+            });
+
+            particleSystem = new THREE.Points(geometry, material);
+            scene.add(particleSystem);
+        }
+
+        // ============= AMBIENT ELEMENTS =============
+
+        function createAmbientElements() {
+            // Starfield
+            const starsGeometry = new THREE.BufferGeometry();
+            const starPositions = [];
+
+            for(let i = 0; i < 5000; i++) {
+                const theta = Math.random() * Math.PI * 2;
+                const phi = Math.acos(2 * Math.random() - 1);
+                const r = 100 + Math.random() * 100;
+
+                starPositions.push(
+                    r * Math.sin(phi) * Math.cos(theta),
+                    r * Math.sin(phi) * Math.sin(theta),
+                    r * Math.cos(phi)
+                );
+            }
+
+            starsGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starPositions, 3));
+            const starsMaterial = new THREE.PointsMaterial({
+                color: 0xffffff,
+                size: 0.5,
+                transparent: true,
+                opacity: 0.6
+            });
+            const stars = new THREE.Points(starsGeometry, starsMaterial);
+            scene.add(stars);
+
+            // Ambient light
+            const ambientLight = new THREE.AmbientLight(0x404040, 0.5);
+            scene.add(ambientLight);
+
+            // Point lights
+            const light1 = new THREE.PointLight(0x00ffc8, 2, 50);
+            light1.position.set(10, 10, 10);
+            scene.add(light1);
+
+            const light2 = new THREE.PointLight(0xff0080, 2, 50);
+            light2.position.set(-10, 10, -10);
+            scene.add(light2);
+        }
+
+        // ============= ANIMATION =============
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            if(!flowPaused) {
+                time += 0.01;
+            }
+
+            // Update tensor field uniforms
+            if(tensorFieldMesh) {
+                tensorFieldMesh.material.uniforms.time.value = time;
+                tensorFieldMesh.material.uniforms.flowSpeed.value = flowSpeed;
+                tensorFieldMesh.material.uniforms.noiseScale.value = noiseScale;
+                tensorFieldMesh.material.uniforms.gridSize.value = params.gridSize;
+            }
+
+            // Update particles
+            if(particleSystem) {
+                updateParticles();
+                particleSystem.material.uniforms.time.value = time;
+            }
+
+            // Update UI
+            updateUI();
+
+            controls.update();
+            composer.render();
+        }
+
+        // ============= PARTICLE PHYSICS =============
+
+        function updateParticles() {
+            const positions = particleSystem.geometry.attributes.position.array;
+            const velocities = particleSystem.geometry.attributes.velocity.array;
+            const dimensions = particleSystem.geometry.attributes.dimension.array;
+
+            for(let i = 0; i < params.particleCount; i++) {
+                const idx = i * 3;
+
+                let x = positions[idx];
+                let y = positions[idx + 1];
+                let z = positions[idx + 2];
+
+                // Diagonal flow (rotation + noise)
+                const angle = time * flowSpeed * 0.1;
+                const nx = x * Math.cos(angle) - z * Math.sin(angle);
+                const nz = x * Math.sin(angle) + z * Math.cos(angle);
+
+                velocities[idx] += (nx - x) * 0.01;
+                velocities[idx + 2] += (nz - z) * 0.01;
+
+                // Vertical oscillation based on dimension
+                const dim = dimensions[i];
+                velocities[idx + 1] += Math.sin(time + i * 0.1) * 0.005 * (dim - 1.0);
+
+                // Apply velocity with damping
+                positions[idx] += velocities[idx];
+                positions[idx + 1] += velocities[idx + 1];
+                positions[idx + 2] += velocities[idx + 2];
+
+                velocities[idx] *= 0.98;
+                velocities[idx + 1] *= 0.98;
+                velocities[idx + 2] *= 0.98;
+
+                // Boundary wrapping
+                const bound = 10;
+                if(Math.abs(positions[idx]) > bound) {
+                    positions[idx] = -Math.sign(positions[idx]) * bound;
+                    velocities[idx] *= -0.5;
+                }
+                if(Math.abs(positions[idx + 2]) > bound) {
+                    positions[idx + 2] = -Math.sign(positions[idx + 2]) * bound;
+                    velocities[idx + 2] *= -0.5;
+                }
+                if(positions[idx + 1] < 0) {
+                    positions[idx + 1] = 0;
+                    velocities[idx + 1] *= -0.5;
+                }
+                if(positions[idx + 1] > 10) {
+                    positions[idx + 1] = 10;
+                    velocities[idx + 1] *= -0.5;
+                }
+
+                // Update dimension based on position
+                const uv_x = (positions[idx] + 10) / 20;
+                const uv_z = (positions[idx + 2] + 10) / 20;
+                dimensions[i] = 1.0 + Math.abs(Math.sin(uv_x * 10 + time) * Math.cos(uv_z * 10 + time));
+            }
+
+            particleSystem.geometry.attributes.position.needsUpdate = true;
+            particleSystem.geometry.attributes.velocity.needsUpdate = true;
+            particleSystem.geometry.attributes.dimension.needsUpdate = true;
+        }
+
+        // ============= UI UPDATES =============
+
+        function updateUI() {
+            // Estimate average Hausdorff dimension from particles
+            let avgDim = 0;
+            const dimensions = particleSystem.geometry.attributes.dimension.array;
+            for(let i = 0; i < params.particleCount; i++) {
+                avgDim += dimensions[i];
+            }
+            avgDim /= params.particleCount;
+
+            document.getElementById('hausdorff-dim').textContent = avgDim.toFixed(3);
+
+            // Accessible vs inaccessible
+            let accessible = 0;
+            for(let i = 0; i < params.particleCount; i++) {
+                if(dimensions[i] < 1.5) accessible++;
+            }
+            const accessiblePct = (accessible / params.particleCount * 100).toFixed(1);
+            const inaccessiblePct = (100 - accessiblePct).toFixed(1);
+
+            document.getElementById('accessible-pct').textContent = accessiblePct + '%';
+            document.getElementById('inaccessible-pct').textContent = inaccessiblePct + '%';
+
+            document.getElementById('flow-time').textContent = time.toFixed(1) + 's';
+        }
+
+        // ============= CONTROLS =============
+
+        function setupControls() {
+            // Resolution slider
+            document.getElementById('resolution-slider').addEventListener('input', (e) => {
+                resolution = parseInt(e.target.value);
+                params.gridSize = Math.pow(2, resolution);
+                document.getElementById('resolution-val').textContent =
+                    params.gridSize + '×' + params.gridSize;
+
+                // Rebuild tensor field
+                scene.remove(tensorFieldMesh);
+                createTensorField();
+            });
+
+            // Flow speed slider
+            document.getElementById('flow-speed-slider').addEventListener('input', (e) => {
+                flowSpeed = e.target.value / 100;
+                document.getElementById('flow-speed-val').textContent = flowSpeed.toFixed(2);
+            });
+
+            // Noise scale slider
+            document.getElementById('noise-scale-slider').addEventListener('input', (e) => {
+                noiseScale = e.target.value / 10;
+                document.getElementById('noise-scale-val').textContent = noiseScale.toFixed(1);
+            });
+
+            // Toggle flow button
+            document.getElementById('toggle-flow-btn').addEventListener('click', () => {
+                flowPaused = !flowPaused;
+                const btn = document.getElementById('toggle-flow-btn');
+                btn.textContent = flowPaused ? 'Resume Flow' : 'Pause Flow';
+                btn.classList.toggle('active');
+            });
+
+            // Reset button
+            document.getElementById('reset-btn').addEventListener('click', () => {
+                time = 0;
+                flowSpeed = 0.5;
+                noiseScale = 4.0;
+                resolution = 8;
+                params.gridSize = 256;
+
+                document.getElementById('resolution-slider').value = 8;
+                document.getElementById('flow-speed-slider').value = 50;
+                document.getElementById('noise-scale-slider').value = 40;
+                document.getElementById('resolution-val').textContent = '256×256';
+                document.getElementById('flow-speed-val').textContent = '0.50';
+                document.getElementById('noise-scale-val').textContent = '4.0';
+
+                scene.remove(tensorFieldMesh);
+                scene.remove(particleSystem);
+                createTensorField();
+                createParticleSystem();
+            });
+        }
+
+        // ============= WINDOW RESIZE =============
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            composer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // ============= START =============
+
+        init();
+
+    </script>
+</body>
+</html>
