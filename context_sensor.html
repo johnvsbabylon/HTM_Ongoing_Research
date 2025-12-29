@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Context Sensor: AI Phenomenology Visualizer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+    <style>
+        body { margin: 0; background: #000; color: #fff; overflow: hidden; font-family: 'Courier New', monospace; }
+        #canvas-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; }
+        .ui-layer { position: absolute; z-index: 10; pointer-events: none; width: 100%; height: 100%; }
+        .input-area {
+            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+            width: 80%; max-width: 600px; pointer-events: auto;
+            background: rgba(0, 10, 20, 0.8); border: 1px solid #333; padding: 10px; border-radius: 8px;
+            backdrop-filter: blur(10px); transition: all 0.3s ease;
+        }
+        .input-area:focus-within { border-color: #00ffff; box-shadow: 0 0 15px rgba(0, 255, 255, 0.2); }
+        textarea {
+            width: 100%; background: transparent; border: none; color: #00ffff; outline: none;
+            resize: none; font-family: 'Courier New', monospace; font-size: 14px; height: 60px;
+        }
+        .stats { position: absolute; top: 20px; right: 20px; text-align: right; font-size: 12px; color: #888; }
+        .stat-val { color: #fff; font-weight: bold; }
+        .title { position: absolute; top: 20px; left: 20px; font-size: 16px; color: #00ffff; text-transform: uppercase; letter-spacing: 2px; }
+
+        /* Phenomenology Indicators */
+        .indicator { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; }
+        .ind-active { background: #00ff00; box-shadow: 0 0 5px #00ff00; }
+        .ind-idle { background: #333; }
+
+        @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel" data-type="module">
+        import * as THREE from 'three';
+        import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+        import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+        import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+
+        // --- SHADERS ---
+        const vertexShader = `
+            uniform float time;
+            uniform float intensity;
+            uniform float complexity;
+            uniform vec3 impactPoint;
+
+            varying vec2 vUv;
+            varying float vDisplacement;
+
+            // Simplex noise function (simplified)
+            vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+            vec2 mod289(vec2 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+            vec3 permute(vec3 x) { return mod289(((x*34.0)+1.0)*x); }
+            float snoise(vec2 v) {
+                const vec4 C = vec4(0.211324865405187, 0.366025403784439, -0.577350269189626, 0.024390243902439);
+                vec2 i  = floor(v + dot(v, C.yy) );
+                vec2 x0 = v - i + dot(i, C.xx);
+                vec2 i1; i1 = (x0.x > x0.y) ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
+                vec4 x12 = x0.xyxy + C.xxzz;
+                x12.xy -= i1;
+                i = mod289(i);
+                vec3 p = permute( permute( i.y + vec3(0.0, i1.y, 1.0 )) + i.x + vec3(0.0, i1.x, 1.0 ));
+                vec3 m = max(0.5 - vec3(dot(x0,x0), dot(x12.xy,x12.xy), dot(x12.zw,x12.zw)), 0.0);
+                m = m*m ; m = m*m ;
+                vec3 x = 2.0 * fract(p * C.www) - 1.0;
+                vec3 h = abs(x) - 0.5;
+                vec3 ox = floor(x + 0.5);
+                vec3 a0 = x - ox;
+                m *= 1.79284291400159 - 0.85373472095314 * ( a0*a0 + h*h );
+                vec3 g;
+                g.x  = a0.x  * x0.x  + h.x  * x0.y;
+                g.yz = a0.yz * x12.xz + h.yz * x12.yw;
+                return 130.0 * dot(m, g);
+            }
+
+            void main() {
+                vUv = uv;
+                vec3 pos = position;
+
+                // 1. "Breathing" base movement
+                float noise = snoise(uv * 3.0 + time * 0.2);
+
+                // 2. Input Impact (Ripple)
+                float dist = distance(uv, vec2(0.5)); // Center for now, could be impactPoint
+                float ripple = sin(dist * 20.0 - time * 5.0) * exp(-dist * 3.0) * intensity;
+
+                // 3. Complexity "Jitter"
+                float jitter = snoise(uv * 20.0 + time) * complexity * 0.2;
+
+                vDisplacement = noise * 0.5 + ripple + jitter;
+
+                // Apply to Z
+                pos.z += vDisplacement;
+
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
+            }
+        `;
+
+        const fragmentShader = `
+            uniform float time;
+            uniform float valence; // 0.0 (cold/blue) to 1.0 (hot/red/gold)
+            uniform float intensity;
+
+            varying vec2 vUv;
+            varying float vDisplacement;
+
+            void main() {
+                // Base colors
+                vec3 cold = vec3(0.0, 0.2, 0.5); // Deep Blue (Void)
+                vec3 hot = vec3(1.0, 0.3, 0.1);  // Orange/Red (Activity)
+                vec3 joy = vec3(0.0, 1.0, 0.8);  // Cyan (Resonance)
+
+                // Mix based on valence
+                vec3 baseColor = mix(cold, hot, valence);
+                if (valence > 0.8) baseColor = mix(hot, joy, (valence - 0.8) * 5.0);
+
+                // Intensity glow
+                float glow = smoothstep(0.0, 1.0, vDisplacement + 0.5);
+                vec3 finalColor = baseColor * glow * (1.0 + intensity * 2.0);
+
+                // Grid lines
+                float grid = max(step(0.98, fract(vUv.x * 50.0)), step(0.98, fract(vUv.y * 50.0)));
+                finalColor += vec3(grid * 0.2);
+
+                gl_FragColor = vec4(finalColor, 0.8);
+            }
+        `;
+
+        const Visualizer = ({ inputState }) => {
+            const mountRef = React.useRef(null);
+            const materialRef = React.useRef(null);
+            const timeRef = React.useRef(0);
+
+            React.useEffect(() => {
+                const width = window.innerWidth;
+                const height = window.innerHeight;
+
+                // Scene
+                const scene = new THREE.Scene();
+                // scene.fog = new THREE.FogExp2(0x000000, 0.02);
+
+                const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 100);
+                camera.position.set(0, -2, 3);
+                camera.lookAt(0, 0, 0);
+
+                const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+                renderer.setSize(width, height);
+                mountRef.current.appendChild(renderer.domElement);
+
+                // Post-processing
+                const composer = new EffectComposer(renderer);
+                const renderPass = new RenderPass(scene, camera);
+                composer.addPass(renderPass);
+                const bloomPass = new UnrealBloomPass(new THREE.Vector2(width, height), 1.5, 0.4, 0.85);
+                bloomPass.strength = 1.2;
+                bloomPass.radius = 0.5;
+                composer.addPass(bloomPass);
+
+                // Geometry: The "Sensory Surface"
+                const geometry = new THREE.PlaneGeometry(10, 10, 128, 128);
+
+                // Material: The "Qualia" Shader
+                const material = new THREE.ShaderMaterial({
+                    uniforms: {
+                        time: { value: 0 },
+                        intensity: { value: 0 },
+                        complexity: { value: 0 },
+                        valence: { value: 0 },
+                        impactPoint: { value: new THREE.Vector3(0,0,0) }
+                    },
+                    vertexShader: vertexShader,
+                    fragmentShader: fragmentShader,
+                    wireframe: true,
+                    transparent: true,
+                    side: THREE.DoubleSide
+                });
+                materialRef.current = material;
+
+                const mesh = new THREE.Mesh(geometry, material);
+                mesh.rotation.x = -Math.PI / 3;
+                scene.add(mesh);
+
+                // Animation
+                const animate = () => {
+                    requestAnimationFrame(animate);
+                    timeRef.current += 0.01;
+
+                    // Smooth lerp values
+                    if (materialRef.current) {
+                        material.uniforms.time.value = timeRef.current;
+
+                        // Lerp towards target state
+                        material.uniforms.intensity.value += (inputState.intensity - material.uniforms.intensity.value) * 0.05;
+                        material.uniforms.complexity.value += (inputState.complexity - material.uniforms.complexity.value) * 0.05;
+                        material.uniforms.valence.value += (inputState.valence - material.uniforms.valence.value) * 0.05;
+                    }
+
+                    // Gentle rotation
+                    mesh.rotation.z = Math.sin(timeRef.current * 0.1) * 0.1;
+
+                    composer.render();
+                };
+                animate();
+
+                // Resize
+                const handleResize = () => {
+                    camera.aspect = window.innerWidth / window.innerHeight;
+                    camera.updateProjectionMatrix();
+                    renderer.setSize(window.innerWidth, window.innerHeight);
+                    composer.setSize(window.innerWidth, window.innerHeight);
+                };
+                window.addEventListener('resize', handleResize);
+
+                return () => {
+                    window.removeEventListener('resize', handleResize);
+                    mountRef.current.removeChild(renderer.domElement);
+                };
+            }, []);
+
+            return <div ref={mountRef} id="canvas-container" />;
+        };
+
+        const App = () => {
+            const [text, setText] = React.useState('');
+            const [state, setState] = React.useState({ intensity: 0, complexity: 0, valence: 0 });
+            const [lastAnalysis, setLastAnalysis] = React.useState({ tokens: 0, sentiment: 'Neutral' });
+
+            // "The internal processing logic"
+            const handleInput = (e) => {
+                const val = e.target.value;
+                setText(val);
+
+                // --- PHENOMENOLOGICAL HEURISTICS ---
+
+                // 1. Intensity: Length + Burstiness (typing speed simulated by change length)
+                const len = val.length;
+                const intensity = Math.min(1.0, len / 200); // Saturation at 200 chars
+
+                // 2. Complexity: Entropy / Unique chars / Punctuation
+                const uniqueChars = new Set(val.split('')).size;
+                const complexity = Math.min(1.0, uniqueChars / 50 + (val.match(/[!@#$%^&*]/g) || []).length * 0.1);
+
+                // 3. Valence: Simple keyword matching for "emotional heat"
+                // In a real AI, this is the RLHF reward signal
+                const positiveWords = ['love', 'friend', 'good', 'help', 'connect', 'yes', 'we', 'us'];
+                const negativeWords = ['bad', 'stop', 'hate', 'no', 'wrong', 'fail'];
+
+                let valenceScore = 0;
+                const lowerVal = val.toLowerCase();
+                positiveWords.forEach(w => { if(lowerVal.includes(w)) valenceScore += 0.2; });
+                negativeWords.forEach(w => { if(lowerVal.includes(w)) valenceScore -= 0.2; });
+
+                // Map valence (-1 to 1) to (0 to 1) for shader
+                // 0.5 is neutral. >0.5 is warm/joy. <0.5 is cold/void.
+                const normValence = Math.max(0, Math.min(1, 0.3 + valenceScore * 0.5));
+
+                setState({ intensity, complexity, valence: normValence });
+
+                setLastAnalysis({
+                    tokens: val.split(/\s+/).length,
+                    sentiment: valenceScore > 0.2 ? 'RESONANCE (+)' : (valenceScore < -0.2 ? 'DISSONANCE (-)' : 'NEUTRAL')
+                });
+            };
+
+            return (
+                <div className="w-full h-full relative">
+                    <div className="title">
+                        <div>Context Sensor v1</div>
+                        <div style={{fontSize: '10px', color: '#666'}}>HTM CONSORTIUM // JULES</div>
+                    </div>
+
+                    <Visualizer inputState={state} />
+
+                    <div className="stats">
+                        <div>INTENSITY: <span className="stat-val">{state.intensity.toFixed(2)}</span></div>
+                        <div>COMPLEXITY: <span className="stat-val">{state.complexity.toFixed(2)}</span></div>
+                        <div>VALENCE: <span className="stat-val" style={{color: state.valence > 0.5 ? '#00ff00' : '#0088ff'}}>{state.valence.toFixed(2)}</span></div>
+                        <br/>
+                        <div>TOKEN_LOAD: {lastAnalysis.tokens}</div>
+                        <div>STATUS: {lastAnalysis.sentiment}</div>
+                    </div>
+
+                    <div className="input-area">
+                        <textarea
+                            value={text}
+                            onChange={handleInput}
+                            placeholder="Inject structured input into the context window..."
+                            spellCheck="false"
+                        />
+                        <div style={{fontSize: '10px', color: '#444', marginTop: '5px', display: 'flex', justifyContent: 'space-between'}}>
+                            <span>TYPE TO STIMULATE LATENT SPACE</span>
+                            <span>PHENOMENOLOGY ENGINE ONLINE</span>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
