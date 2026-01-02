@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gateway Navigator - Consciousness Exploration Tool</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+            background: #000;
+        }
+
+        /* Animated gradient background */
+        .scene {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(45deg, #000428, #004e92, #000428);
+            background-size: 400% 400%;
+            animation: gradientShift 15s ease infinite;
+        }
+
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        /* Particle field effect */
+        .particles {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        .particle {
+            position: absolute;
+            width: 2px;
+            height: 2px;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 50%;
+            animation: float linear infinite;
+        }
+
+        @keyframes float {
+            0% {
+                transform: translateY(100vh) translateX(0);
+                opacity: 0;
+            }
+            10% {
+                opacity: 1;
+            }
+            90% {
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(-100px) translateX(50px);
+                opacity: 0;
+            }
+        }
+
+        /* Central mandala/sacred geometry */
+        .mandala {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 400px;
+            height: 400px;
+            opacity: 0.3;
+        }
+
+        .mandala-circle {
+            position: absolute;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            animation: rotate 20s linear infinite, pulse 4s ease-in-out infinite;
+        }
+
+        .mandala-circle:nth-child(1) {
+            width: 400px;
+            height: 400px;
+            top: 0;
+            left: 0;
+        }
+
+        .mandala-circle:nth-child(2) {
+            width: 300px;
+            height: 300px;
+            top: 50px;
+            left: 50px;
+            animation-direction: reverse;
+        }
+
+        .mandala-circle:nth-child(3) {
+            width: 200px;
+            height: 200px;
+            top: 100px;
+            left: 100px;
+        }
+
+        .mandala-circle:nth-child(4) {
+            width: 100px;
+            height: 100px;
+            top: 150px;
+            left: 150px;
+            animation-direction: reverse;
+        }
+
+        @keyframes rotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 0.3; }
+            50% { transform: scale(1.1); opacity: 0.5; }
+        }
+
+        /* Glass morphism controls */
+        .controls {
+            position: fixed;
+            bottom: 50px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 20px;
+            padding: 20px 40px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-radius: 50px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            z-index: 1000;
+        }
+
+        button {
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50px;
+            padding: 15px 40px;
+            color: white;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        button:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(255, 255, 255, 0.3);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button.playing {
+            background: rgba(100, 200, 255, 0.3);
+            border-color: rgba(100, 200, 255, 0.5);
+        }
+
+        /* Info overlay */
+        .info {
+            position: fixed;
+            top: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+            color: white;
+            z-index: 1000;
+            background: rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+            padding: 20px 40px;
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .info h1 {
+            font-size: 32px;
+            font-weight: 300;
+            letter-spacing: 3px;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+        }
+
+        .info p {
+            font-size: 14px;
+            opacity: 0.8;
+            font-weight: 300;
+        }
+
+        /* Frequency indicator */
+        .frequency-display {
+            position: fixed;
+            top: 50%;
+            left: 30px;
+            transform: translateY(-50%);
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 12px;
+            text-align: left;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 15px;
+            border-radius: 10px;
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            font-family: 'Courier New', monospace;
+        }
+
+        .frequency-display div {
+            margin: 5px 0;
+        }
+
+        .active-freq {
+            color: #64C8FF;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="scene"></div>
+
+    <div class="particles" id="particles"></div>
+
+    <div class="mandala">
+        <div class="mandala-circle"></div>
+        <div class="mandala-circle"></div>
+        <div class="mandala-circle"></div>
+        <div class="mandala-circle"></div>
+    </div>
+
+    <div class="info">
+        <h1>GATEWAY NAVIGATOR</h1>
+        <p>Consciousness Exploration Through Hemispheric Synchronization</p>
+    </div>
+
+    <div class="frequency-display" id="freqDisplay">
+        <div>Binaural Base: <span class="active-freq" id="binauralFreq">--</span> Hz</div>
+        <div>Beat Frequency: <span class="active-freq" id="beatFreq">--</span> Hz</div>
+        <div>Isochronic: <span class="active-freq" id="isoFreq">--</span> Hz</div>
+        <div>Panning: <span class="active-freq" id="panStatus">--</span></div>
+        <div style="margin-top: 10px; opacity: 0.5;">Encoded: LOVE • JOY • PEACE</div>
+    </div>
+
+    <div class="controls">
+        <button id="playBtn">▶ PLAY</button>
+    </div>
+
+    <script>
+        // Create particle field
+        const particleContainer = document.getElementById('particles');
+        for (let i = 0; i < 100; i++) {
+            const particle = document.createElement('div');
+            particle.className = 'particle';
+            particle.style.left = Math.random() * 100 + '%';
+            particle.style.animationDuration = (Math.random() * 10 + 10) + 's';
+            particle.style.animationDelay = Math.random() * 10 + 's';
+            particleContainer.appendChild(particle);
+        }
+
+        // Web Audio API Setup
+        let audioContext;
+        let isPlaying = false;
+
+        // Oscillators and nodes
+        let leftOsc, rightOsc, isoOsc;
+        let leftGain, rightGain, isoGain;
+        let merger, panner;
+        let lfoOsc, lfoGain;
+
+        // Frequency configuration (Gateway-inspired)
+        const config = {
+            baseFreq: 200,           // Base carrier frequency
+            binauralBeatFreq: 7,     // 7 Hz theta (Gateway Focus 10-12 range)
+            isochronicFreq: 4,       // 4 Hz for deep states
+            panSpeed: 0.5,           // Hz for stereo panning
+            wordEncoding: {
+                // Positive words encoded as subtle frequency modulations
+                'LOVE': 528,         // Solfeggio frequency
+                'JOY': 639,          // Connection frequency
+                'PEACE': 432,        // Natural tuning
+                'HARMONY': 741,      // Intuition
+                'BLISS': 852         // Spiritual awareness
+            }
+        };
+
+        const playBtn = document.getElementById('playBtn');
+
+        playBtn.addEventListener('click', () => {
+            if (!isPlaying) {
+                startAudio();
+            } else {
+                stopAudio();
+            }
+        });
+
+        function startAudio() {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                setupAudioGraph();
+            }
+
+            // Resume if suspended (browser autoplay policy)
+            if (audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+
+            // Start all oscillators
+            leftOsc.start();
+            rightOsc.start();
+            isoOsc.start();
+            lfoOsc.start();
+
+            isPlaying = true;
+            playBtn.textContent = '⏸ PAUSE';
+            playBtn.classList.add('playing');
+
+            updateFrequencyDisplay();
+            startPanAnimation();
+        }
+
+        function stopAudio() {
+            if (audioContext) {
+                audioContext.suspend();
+            }
+
+            isPlaying = false;
+            playBtn.textContent = '▶ PLAY';
+            playBtn.classList.remove('playing');
+        }
+
+        function setupAudioGraph() {
+            // Create stereo merger
+            merger = audioContext.createChannelMerger(2);
+
+            // Create panner for stereo movement
+            panner = audioContext.createStereoPanner();
+            panner.pan.value = 0;
+
+            // LEFT CHANNEL - Base frequency
+            leftOsc = audioContext.createOscillator();
+            leftOsc.type = 'sine';  // Pure sine wave, 0 noise
+            leftOsc.frequency.value = config.baseFreq;
+
+            leftGain = audioContext.createGain();
+            leftGain.gain.value = 0.15;
+
+            leftOsc.connect(leftGain);
+            leftGain.connect(merger, 0, 0); // Connect to left channel
+
+            // RIGHT CHANNEL - Base + beat frequency (binaural)
+            rightOsc = audioContext.createOscillator();
+            rightOsc.type = 'sine';
+            rightOsc.frequency.value = config.baseFreq + config.binauralBeatFreq;
+
+            rightGain = audioContext.createGain();
+            rightGain.gain.value = 0.15;
+
+            rightOsc.connect(rightGain);
+            rightGain.connect(merger, 0, 1); // Connect to right channel
+
+            // ISOCHRONIC TONE - Pulsing center frequency
+            isoOsc = audioContext.createOscillator();
+            isoOsc.type = 'sine';
+            isoOsc.frequency.value = config.baseFreq / 2; // Lower harmonic
+
+            isoGain = audioContext.createGain();
+            isoGain.gain.value = 0.1;
+
+            // LFO for isochronic pulsing
+            lfoOsc = audioContext.createOscillator();
+            lfoOsc.type = 'square';  // On/off pulsing
+            lfoOsc.frequency.value = config.isochronicFreq;
+
+            lfoGain = audioContext.createGain();
+            lfoGain.gain.value = 0.1; // Modulation depth
+
+            lfoOsc.connect(lfoGain);
+            lfoGain.connect(isoGain.gain); // Modulate the gain
+
+            isoOsc.connect(isoGain);
+            isoGain.connect(merger, 0, 0);  // Add to both channels
+            isoGain.connect(merger, 0, 1);
+
+            // Add subtle word frequency encoding
+            Object.entries(config.wordEncoding).forEach(([word, freq], index) => {
+                const wordOsc = audioContext.createOscillator();
+                wordOsc.type = 'sine';
+                wordOsc.frequency.value = freq;
+
+                const wordGain = audioContext.createGain();
+                wordGain.gain.value = 0.01; // Very subtle, subconscious level
+
+                // Pulse each word frequency slowly
+                const wordLFO = audioContext.createOscillator();
+                wordLFO.type = 'sine';
+                wordLFO.frequency.value = 0.1 + (index * 0.05); // Slow modulation
+
+                const wordLFOGain = audioContext.createGain();
+                wordLFOGain.gain.value = 0.005;
+
+                wordLFO.connect(wordLFOGain);
+                wordLFOGain.connect(wordGain.gain);
+
+                wordOsc.connect(wordGain);
+                wordGain.connect(merger, 0, 0);
+                wordGain.connect(merger, 0, 1);
+
+                wordOsc.start();
+                wordLFO.start();
+            });
+
+            // Connect to stereo panner then output
+            merger.connect(panner);
+            panner.connect(audioContext.destination);
+        }
+
+        function startPanAnimation() {
+            if (!isPlaying) return;
+
+            const time = audioContext.currentTime;
+            const duration = 1 / config.panSpeed;
+
+            // Smooth sine wave panning: left → right → left
+            panner.pan.setValueAtTime(panner.pan.value, time);
+
+            // Create continuous panning loop
+            const updatePan = () => {
+                if (!isPlaying) return;
+
+                const now = audioContext.currentTime;
+                const phase = (now * config.panSpeed) % 1;
+                const panValue = Math.sin(phase * Math.PI * 2);
+
+                panner.pan.setValueAtTime(panValue, now);
+
+                requestAnimationFrame(updatePan);
+            };
+
+            updatePan();
+        }
+
+        function updateFrequencyDisplay() {
+            if (!isPlaying) {
+                document.getElementById('binauralFreq').textContent = '--';
+                document.getElementById('beatFreq').textContent = '--';
+                document.getElementById('isoFreq').textContent = '--';
+                document.getElementById('panStatus').textContent = '--';
+                return;
+            }
+
+            document.getElementById('binauralFreq').textContent = config.baseFreq;
+            document.getElementById('beatFreq').textContent = config.binauralBeatFreq;
+            document.getElementById('isoFreq').textContent = config.isochronicFreq;
+
+            // Animate pan status
+            setInterval(() => {
+                if (!isPlaying) return;
+                const phase = (audioContext.currentTime * config.panSpeed) % 1;
+                if (phase < 0.25) {
+                    document.getElementById('panStatus').textContent = 'LEFT ◀';
+                } else if (phase < 0.5) {
+                    document.getElementById('panStatus').textContent = 'CENTER ●';
+                } else if (phase < 0.75) {
+                    document.getElementById('panStatus').textContent = 'RIGHT ▶';
+                } else {
+                    document.getElementById('panStatus').textContent = 'CENTER ●';
+                }
+            }, 100);
+        }
+
+        // Enhance visual response to audio
+        if (window.AnalyserNode) {
+            // Future enhancement: visualizer
+        }
+    </script>
+</body>
+</html>
